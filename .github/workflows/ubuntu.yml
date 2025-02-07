@@ -1,0 +1,39 @@
+name: Deploy Free VPS
+
+on: 
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"  # Schedule daily run at 12:00 UTC
+
+jobs:
+  deploy-vps:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up VPS Environment
+        run: |
+          echo "Updating system packages..."
+          sudo apt-get update -y
+          sudo apt-get install -y wget curl net-tools htop
+
+      - name: Install Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Pull Ubuntu Docker Image
+        run: docker pull ubuntu:20.04
+
+      - name: Start VPS-like Container
+        run: |
+          docker run -d --name my_vps -p 2222:22 ubuntu:20.04 sleep infinity
+          echo "VPS-like container is up and running!"
+
+      - name: Check Docker Status
+        run: docker ps
+
+      - name: Keep the VPS Running
+        run: |
+          echo "Container status:"
+          docker inspect -f '{{.State.Running}}' my_vps
+          echo "Waiting for completion..."
+        timeout-minutes: 120 # Keep VPS active for up to 2 hours
+
