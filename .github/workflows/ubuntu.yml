@@ -1,32 +1,39 @@
-name: Deploy Free VPS
+name: Deploy Free VPS with Cockpit
 
 on: 
   workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"  # Schedule daily run at 12:00 UTC
 
 jobs:
   deploy-vps:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up VPS Environment
+      - name: Update System Packages
         run: |
           echo "Updating system packages..."
           sudo apt-get update -y
-          sudo apt-get install -y openssh-server
+          sudo apt-get install -y wget curl net-tools htop cockpit
 
-      - name: Install Docker
-        uses: docker/setup-buildx-action@v2
-
-      - name: Pull Ubuntu Docker Image
-        run: docker pull ubuntu:20.04
-
-      - name: Start VPS-like Container with SSH
+      - name: Enable and Start Cockpit
         run: |
-          docker run -d --name my_vps -p 2222:22 ubuntu:20.04 sleep infinity
-          docker exec my_vps apt update
-          docker exec my_vps apt install -y openssh-server
-          docker exec my_vps service ssh start
-          echo "VPS-like container is up and running!"
+          echo "Starting Cockpit service..."
+          sudo systemctl enable --now cockpit
+          sudo systemctl status cockpit
 
-      - name: Check Docker Status
-        run: docker ps
+      - name: Set Admin User and Password
+        run: |
+          echo "Creating user for Cockpit..."
+          sudo useradd -m cockpitadmin
+          echo 'cockpitadmin:SecurePassword123!' | sudo chpasswd
+          echo "cockpitadmin ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/cockpitadmin
+          echo "User cockpitadmin created with password: SecurePassword123!"
+
+      - name: Keep the VPS Running
+        run: |
+          echo "Cockpit should now be accessible at port 9090."
+          echo "Username: cockpitadmin | Password: SecurePassword123!"
+          echo "Waiting for the environment to stay active..."
+          sleep 7200 # Keep the job alive for 2 hours
+
