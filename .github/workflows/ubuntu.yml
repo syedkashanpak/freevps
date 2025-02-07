@@ -1,39 +1,39 @@
-name: Deploy Free VPS with Cockpit
+name: Deploy Free VPS with Cockpit and ngrok
 
-on: 
+on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 12 * * *"  # Schedule daily run at 12:00 UTC
 
 jobs:
   deploy-vps:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Update System Packages
-        run: |
-          echo "Updating system packages..."
-          sudo apt-get update -y
-          sudo apt-get install -y wget curl net-tools htop cockpit
+      - name: Update System
+        run: sudo apt-get update -y
 
-      - name: Enable and Start Cockpit
+      - name: Install Cockpit
         run: |
-          echo "Starting Cockpit service..."
-          sudo systemctl enable --now cockpit
-          sudo systemctl status cockpit
+          sudo apt-get install -y cockpit
+          sudo systemctl start cockpit
+          sudo systemctl enable cockpit
 
-      - name: Set Admin User and Password
+      - name: Create User for Cockpit
         run: |
-          echo "Creating user for Cockpit..."
-          sudo useradd -m cockpitadmin
-          echo 'cockpitadmin:SecurePassword123!' | sudo chpasswd
-          echo "cockpitadmin ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/cockpitadmin
-          echo "User cockpitadmin created with password: SecurePassword123!"
+          sudo useradd -m -s /bin/bash vpsadmin
+          echo "vpsadmin:SecureP@ssw0rd" | sudo chpasswd
 
-      - name: Keep the VPS Running
+      - name: Install ngrok
         run: |
-          echo "Cockpit should now be accessible at port 9090."
-          echo "Username: cockpitadmin | Password: SecurePassword123!"
-          echo "Waiting for the environment to stay active..."
-          sleep 7200 # Keep the job alive for 2 hours
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+          && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null \
+          && sudo apt-get update && sudo apt-get install ngrok
 
+      - name: Start ngrok Tunnel
+        run: |
+          ngrok config add-authtoken ${{ secrets.2HG0KabhUAcYzU7lhvlVdgRObB6_4UpZFUy3DKhXBDB2BQMsk }}
+          ngrok http 9090 > ngrok.log &
+          sleep 5
+          cat ngrok.log | grep "https://" || echo "ngrok failed"
+
+      - name: Keep Workflow Running
+        run: sleep 600
